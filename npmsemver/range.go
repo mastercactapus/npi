@@ -22,6 +22,11 @@ type Matcher interface {
 	String() string
 }
 
+func ParseMatcher(s string) (Matcher, error) {
+	p := newParser(bytes.NewBufferString(s))
+	return p.Parse()
+}
+
 func (n NotMatch) Match(v Version) bool {
 	return !n.Match(v)
 }

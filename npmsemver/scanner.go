@@ -49,6 +49,7 @@ func isIdent(ch rune) bool {
 type scanner struct {
 	r       *bufio.Reader
 	lastTok token
+	vers    int
 }
 
 func newScanner(r io.Reader) *scanner {
@@ -81,7 +82,7 @@ func (s *scanner) scanWhitespace() (tok token, lit string) {
 	return TokenWs, buf.String()
 }
 
-func (s *scanner) scanIdentNumber() (tok token, lit string) {
+func (s *scanner) scanIdent() (tok token, lit string) {
 	var buf bytes.Buffer
 	buf.WriteRune(s.read())
 
@@ -93,9 +94,26 @@ func (s *scanner) scanIdentNumber() (tok token, lit string) {
 		} else if !isIdent(ch) {
 			s.unread()
 			break
-		} else if !isNumber(ch) {
-			tok = TokenIdentifier
+		} else {
 			buf.WriteRune(ch)
+		}
+	}
+
+	return tok, buf.String()
+}
+
+func (s *scanner) scanNumber() (tok token, lit string) {
+	var buf bytes.Buffer
+	buf.WriteRune(s.read())
+
+	tok = TokenNumber
+
+	for {
+		if ch := s.read(); ch == eof {
+			break
+		} else if !isNumber(ch) {
+			s.unread()
+			break
 		} else {
 			buf.WriteRune(ch)
 		}
@@ -108,35 +126,48 @@ func (s *scanner) Scan() (tok token, lit string) {
 	ch := s.read()
 
 	if isWhitespace(ch) {
+		s.vers = 0
 		s.unread()
 		s.lastTok = TokenWs
 		return s.scanWhitespace()
-	} else if (s.lastTok == TokenIdentifier || s.lastTok == TokenNumber) && ch == '-' {
+	} else if s.vers == 3 && ch == '-' {
+		s.vers++
 		s.lastTok = TokenPrerelease
 		return TokenPrerelease, "-"
-	} else if (s.lastTok == TokenIdentifier || s.lastTok == TokenNumber) && ch == '+' {
+	} else if (s.vers == 3 || s.vers == 4) && ch == '+' {
+		s.vers++
 		s.lastTok = TokenBuild
 		return TokenBuild, "+"
 	} else if ch == '-' {
+		s.vers = 0
 		s.lastTok = TokenHyphen
 		return TokenHyphen, "-"
-	} else if isIdent(ch) {
+	} else if (s.vers == 0 || s.lastTok == TokenSeparator) && s.vers < 3 && isNumber(ch) {
 		s.unread()
-		tok, lit = s.scanIdentNumber()
+		s.vers++
+		s.lastTok = TokenNumber
+		return s.scanNumber()
+	} else if s.vers >= 3 && isIdent(ch) {
+		s.unread()
+		tok, lit = s.scanIdent()
 		s.lastTok = tok
 		return tok, lit
 	}
 
 	switch ch {
 	case eof:
+		s.vers = 0
 		return TokenEOF, ""
 	case '>':
+		s.vers = 0
 		s.lastTok = TokenGT
 		return TokenGT, ">"
 	case '<':
+		s.vers = 0
 		s.lastTok = TokenLT
 		return TokenLT, "<"
 	case '|':
+		s.vers = 0
 		ch = s.read()
 		if ch != '|' {
 			s.lastTok = TokenIllegal
@@ -144,18 +175,25 @@ func (s *scanner) Scan() (tok token, lit string) {
 		}
 		return TokenOr, "||"
 	case '=':
+		s.vers = 0
 		s.lastTok = TokenEq
 		return TokenEq, "="
 	case '!':
+		s.vers = 0
 		s.lastTok = TokenNot
 		return TokenNot, "!"
 	case '~':
+		s.vers = 0
 		s.lastTok = TokenTilde
 		return TokenTilde, "~"
 	case '^':
+		s.vers = 0
 		s.lastTok = TokenCaret
 		return TokenCaret, "^"
 	case '.':
+		if s.lastTok != TokenNumber && s.lastTok != TokenIdentifier {
+			return TokenIllegal, string(ch)
+		}
 		s.lastTok = TokenSeparator
 		return TokenSeparator, "."
 	}

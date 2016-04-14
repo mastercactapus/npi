@@ -27,6 +27,7 @@ func (p *parser) scan() (tok token, lit string) {
 
 	tok, lit = p.s.Scan()
 	p.buf.tok, p.buf.lit = tok, lit
+
 	return tok, lit
 }
 func (p *parser) unscan() { p.buf.n = 1 }
@@ -203,13 +204,16 @@ func (p *parser) parseVersion() (v *Version, err error) {
 			v.Prerelease = append(v.Prerelease, lit)
 			tok, lit = p.scan()
 			if tok != TokenSeparator {
-				p.unscan()
+				if tok != TokenBuild {
+					p.unscan()
+				}
 				break
 			}
 		}
 	}
 
 	if tok == TokenBuild {
+
 		v.Build = make([]string, 0, 5)
 		for {
 			tok, lit = p.scan()
@@ -302,7 +306,9 @@ func (p *parser) parseRange() (*Range, error) {
 			min.Prerelease = append(min.Prerelease, lit)
 			tok, lit = p.scan()
 			if tok != TokenSeparator {
-				p.unscan()
+				if tok != TokenBuild {
+					p.unscan()
+				}
 				break
 			}
 		}
