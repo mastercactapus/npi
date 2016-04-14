@@ -1,6 +1,7 @@
 package npmsemver
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 )
@@ -13,19 +14,28 @@ type Version struct {
 	Build      []string
 }
 
-func (a Version) LT(b Version) bool {
+func Parse(s string) (*Version, error) {
+	p := newParser(bytes.NewBufferString(s))
+	return p.parseVersion()
+}
 
+func (a Version) LT(b Version) bool {
+	return false
 }
 func (a Version) EQ(b Version) bool {
+	return false
 
 }
 func (a Version) GT(b Version) bool {
+	return false
 
 }
 func (a Version) LTE(b Version) bool {
+	return false
 
 }
 func (a Version) GTE(b Version) bool {
+	return false
 
 }
 func (a Version) Match(v Version) bool {

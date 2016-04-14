@@ -31,7 +31,7 @@ func (n NotMatch) String() string {
 
 func (a AnyMatch) Match(v Version) bool {
 	for _, m := range a {
-		if a.Match(v) {
+		if m.Match(v) {
 			return true
 		}
 	}
@@ -51,7 +51,7 @@ func (a AnyMatch) String() string {
 
 func (a AllMatch) Match(v Version) bool {
 	for _, m := range a {
-		if !a.Match(v) {
+		if !m.Match(v) {
 			return false
 		}
 	}

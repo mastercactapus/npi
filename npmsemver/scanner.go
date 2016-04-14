@@ -6,12 +6,12 @@ import (
 	"io"
 )
 
-type Token int
+type token int
 
 var eof = rune(0)
 
 const (
-	TokenIllegal Token = iota
+	TokenIllegal token = iota
 	TokenEOF
 	TokenWs
 
@@ -20,8 +20,8 @@ const (
 
 	TokenSeparator  // period, between identifiers/numbers
 	TokenHyphen     // hyphen for version ranges
-	TokenMetadata   // hyphen as part of a version
-	TokenPrerelease // '+' rune as part of a version
+	TokenBuild      // plus as part of a version -- signifies metadata
+	TokenPrerelease // hyphen part of a version -- signifies prerelease tag
 
 	TokenTilde
 	TokenCaret
@@ -46,24 +46,24 @@ func isIdent(ch rune) bool {
 	return ch == '-' || isNumber(ch) || isLetter(ch)
 }
 
-type Scanner struct {
+type scanner struct {
 	r       *bufio.Reader
-	lastTok Token
+	lastTok token
 }
 
-func NewScanner(r io.Reader) *Scanner {
-	return &Scanner{r: bufio.NewReader(r)}
+func newScanner(r io.Reader) *scanner {
+	return &scanner{r: bufio.NewReader(r)}
 }
-func (s *Scanner) read() rune {
+func (s *scanner) read() rune {
 	ch, _, err := s.r.ReadRune()
 	if err != nil {
 		return eof
 	}
 	return ch
 }
-func (s *Scanner) unread() { _ = s.r.UnreadRune() }
+func (s *scanner) unread() { _ = s.r.UnreadRune() }
 
-func (s *Scanner) scanWhitespace() (tok Token, lit string) {
+func (s *scanner) scanWhitespace() (tok token, lit string) {
 	var buf bytes.Buffer
 	buf.WriteRune(s.read())
 
@@ -78,10 +78,10 @@ func (s *Scanner) scanWhitespace() (tok Token, lit string) {
 		}
 	}
 
-	return WS, buf.String()
+	return TokenWs, buf.String()
 }
 
-func (s *Scanner) scanIdentNumber() (tok Token, lit string) {
+func (s *scanner) scanIdentNumber() (tok token, lit string) {
 	var buf bytes.Buffer
 	buf.WriteRune(s.read())
 
@@ -104,19 +104,19 @@ func (s *Scanner) scanIdentNumber() (tok Token, lit string) {
 	return tok, buf.String()
 }
 
-func (s *Scanner) Scan() (tok Token, lit string) {
+func (s *scanner) Scan() (tok token, lit string) {
 	ch := s.read()
 
 	if isWhitespace(ch) {
 		s.unread()
-		s.lastTok = WS
+		s.lastTok = TokenWs
 		return s.scanWhitespace()
 	} else if (s.lastTok == TokenIdentifier || s.lastTok == TokenNumber) && ch == '-' {
 		s.lastTok = TokenPrerelease
 		return TokenPrerelease, "-"
 	} else if (s.lastTok == TokenIdentifier || s.lastTok == TokenNumber) && ch == '+' {
-		s.lastTok = TokenMetadata
-		return TokenMetadata, "+"
+		s.lastTok = TokenBuild
+		return TokenBuild, "+"
 	} else if ch == '-' {
 		s.lastTok = TokenHyphen
 		return TokenHyphen, "-"
