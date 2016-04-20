@@ -198,7 +198,7 @@ func (p *parser) parseVersion() (v *Version, err error) {
 		v.Prerelease = make([]string, 0, 5)
 		for {
 			tok, lit = p.scan()
-			if tok != TokenIdentifier && tok != TokenNumber {
+			if tok != TokenIdentifier {
 				return nil, p.unexpTokErr(tok, lit)
 			}
 			v.Prerelease = append(v.Prerelease, lit)
@@ -217,7 +217,7 @@ func (p *parser) parseVersion() (v *Version, err error) {
 		v.Build = make([]string, 0, 5)
 		for {
 			tok, lit = p.scan()
-			if tok != TokenIdentifier && tok != TokenNumber {
+			if tok != TokenIdentifier {
 				return nil, p.unexpTokErr(tok, lit)
 			}
 			v.Build = append(v.Build, lit)
@@ -232,66 +232,78 @@ func (p *parser) parseVersion() (v *Version, err error) {
 }
 
 // parseRange will sort-of parse semver, but turns it into a range (e.g. "1" "1.x" etc)
-func (p *parser) parseRange() (*Range, error) {
+func (p *parser) parseRange() (r *Range, err error) {
 	var min, max Version
 	tok, lit := p.scanIgnoreWhitespace()
-	if tok != TokenNumber && tok != TokenIdentifier {
-		return nil, p.unexpTokErr(tok, lit)
-	}
+
 	if tok == TokenNumber {
 		min.Major = mustParseInt(lit)
-	} else if lit == "*" || lit == "x" || lit == "X" {
+	} else if tok == TokenPlaceholder {
 		// any major version = default range
-		return &Range{}, nil
+		r = &Range{}
 	} else {
 		return nil, p.unexpTokErr(tok, lit)
 	}
 
 	if tok, lit = p.scan(); tok != TokenSeparator {
 		p.unscan()
+		if r != nil {
+			// if we already determined the range, return it
+			return r, nil
+		}
+
 		max.Major = min.Major + 1
 		return &Range{Min: &min, Max: &max, ExclusiveMax: true}, nil
 	}
 
-	if tok, lit = p.scan(); tok != TokenNumber && tok != TokenIdentifier {
-		return nil, p.unexpTokErr(tok, lit)
-	}
-
+	// separator must be followed by a number or placeholder
+	tok, lit = p.scan()
 	if tok == TokenNumber {
-		max.Major = min.Major
-		min.Minor = mustParseInt(lit)
-	} else if lit == "x" || lit == "X" {
-		max.Major = min.Major + 1
-		// any minor version
-		return &Range{Min: &min, Max: &max, ExclusiveMax: true}, nil
+		if r == nil {
+			max.Major = min.Major
+			min.Minor = mustParseInt(lit)
+		}
+	} else if tok == TokenPlaceholder {
+		if r == nil {
+			max.Major = min.Major + 1
+			// any minor version
+			r = &Range{Min: &min, Max: &max, ExclusiveMax: true}
+		}
 	} else {
 		return nil, p.unexpTokErr(tok, lit)
 	}
 
 	if tok, lit = p.scan(); tok != TokenSeparator {
 		p.unscan()
+		if r != nil {
+			return r, nil
+		}
 		max.Minor = min.Minor + 1
 		return &Range{Min: &min, Max: &max, ExclusiveMax: true}, nil
 	}
 
-	if tok, lit = p.scan(); tok != TokenNumber && tok != TokenIdentifier {
-		return nil, p.unexpTokErr(tok, lit)
-	}
-
+	tok, lit = p.scan()
 	if tok == TokenNumber {
-		max.Minor = min.Minor
-		min.Patch = mustParseInt(lit)
-		max.Patch = min.Patch
-	} else if lit == "x" || lit == "X" {
-		max.Minor = min.Minor + 1
-		// any patch version
-		return &Range{Min: &min, Max: &max, ExclusiveMax: true}, nil
+		if r == nil {
+			max.Minor = min.Minor
+			min.Patch = mustParseInt(lit)
+			max.Patch = min.Patch
+		}
+	} else if tok == TokenPlaceholder {
+		if r == nil {
+			max.Minor = min.Minor + 1
+			// any patch version
+			r = &Range{Min: &min, Max: &max, ExclusiveMax: true}
+		}
 	} else {
 		return nil, p.unexpTokErr(tok, lit)
 	}
 
 	if tok, lit = p.scan(); tok != TokenPrerelease && tok != TokenBuild {
 		p.unscan()
+		if r != nil {
+			return r, nil
+		}
 		// min and max should be equal
 		return &Range{Min: &min, Max: &max}, nil
 	}
@@ -300,10 +312,12 @@ func (p *parser) parseRange() (*Range, error) {
 		min.Prerelease = make([]string, 0, 5)
 		for {
 			tok, lit = p.scan()
-			if tok != TokenIdentifier && tok != TokenNumber {
+			if tok != TokenIdentifier {
 				return nil, p.unexpTokErr(tok, lit)
 			}
-			min.Prerelease = append(min.Prerelease, lit)
+			if r == nil {
+				min.Prerelease = append(min.Prerelease, lit)
+			}
 			tok, lit = p.scan()
 			if tok != TokenSeparator {
 				if tok != TokenBuild {
@@ -318,7 +332,7 @@ func (p *parser) parseRange() (*Range, error) {
 		// we don't actually need the buil/metadata, but we need to consume the tokens
 		for {
 			tok, lit = p.scan()
-			if tok != TokenIdentifier && tok != TokenNumber {
+			if tok != TokenIdentifier {
 				return nil, p.unexpTokErr(tok, lit)
 			}
 
@@ -328,6 +342,10 @@ func (p *parser) parseRange() (*Range, error) {
 				break
 			}
 		}
+	}
+
+	if r != nil {
+		return r, nil
 	}
 
 	return &Range{Min: &min, Max: &max}, nil

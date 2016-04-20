@@ -16,7 +16,7 @@ type Version struct {
 
 func Parse(s string) (v Version, err error) {
 	p := newParser(bytes.NewBufferString(s))
-	vs,err:= p.parseVersion()
+	vs, err := p.parseVersion()
 	if err != nil {
 		return v, err
 	}

@@ -31,7 +31,6 @@ const (
 	TokenEq
 	TokenNot
 	TokenOr
-	TokenAsterisk
 )
 
 func isWhitespace(ch rune) bool {
@@ -85,7 +84,7 @@ func (s *scanner) scanWhitespace() (tok token, lit string) {
 
 func (s *scanner) scanIdent() (tok token, lit string) {
 	var buf bytes.Buffer
-	first:=s.read()
+	first := s.read()
 	buf.WriteRune(first)
 
 	tok = TokenIdentifier
@@ -101,7 +100,7 @@ func (s *scanner) scanIdent() (tok token, lit string) {
 		}
 	}
 
-	if s.vers < 3 && buf.Len() == 1 && (first == 'x' || first=='X') {
+	if s.vers < 3 && buf.Len() == 1 && (first == 'x' || first == 'X') {
 		return TokenPlaceholder, buf.String()
 	}
 
@@ -158,7 +157,7 @@ func (s *scanner) Scan() (tok token, lit string) {
 		tok, lit = s.scanIdent()
 		s.lastTok = tok
 		return tok, lit
-	} else if s.vers < 3 && ch == 'x' || ch == 'X' {
+	} else if s.vers < 3 && ch == 'x' || ch == 'X' || ch == '*' {
 		s.vers++
 		s.lastTok = TokenPlaceholder
 		return TokenPlaceholder, string(ch)
