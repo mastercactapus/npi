@@ -17,6 +17,7 @@ const (
 
 	TokenNumber
 	TokenIdentifier
+	TokenPlaceholder // x or X in semver
 
 	TokenSeparator  // period, between identifiers/numbers
 	TokenHyphen     // hyphen for version ranges
@@ -84,9 +85,10 @@ func (s *scanner) scanWhitespace() (tok token, lit string) {
 
 func (s *scanner) scanIdent() (tok token, lit string) {
 	var buf bytes.Buffer
-	buf.WriteRune(s.read())
+	first:=s.read()
+	buf.WriteRune(first)
 
-	tok = TokenNumber
+	tok = TokenIdentifier
 
 	for {
 		if ch := s.read(); ch == eof {
@@ -97,6 +99,10 @@ func (s *scanner) scanIdent() (tok token, lit string) {
 		} else {
 			buf.WriteRune(ch)
 		}
+	}
+
+	if s.vers < 3 && buf.Len() == 1 && (first == 'x' || first=='X') {
+		return TokenPlaceholder, buf.String()
 	}
 
 	return tok, buf.String()
@@ -152,6 +158,10 @@ func (s *scanner) Scan() (tok token, lit string) {
 		tok, lit = s.scanIdent()
 		s.lastTok = tok
 		return tok, lit
+	} else if s.vers < 3 && ch == 'x' || ch == 'X' {
+		s.vers++
+		s.lastTok = TokenPlaceholder
+		return TokenPlaceholder, string(ch)
 	}
 
 	switch ch {
