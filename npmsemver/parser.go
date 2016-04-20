@@ -335,7 +335,7 @@ func (p *parser) parseRange() (*Range, error) {
 
 func (p *parser) unexpTokErr(tok token, lit string) error {
 	// TODO include character number, tokens, etc...
-	return fmt.Errorf("unexpected token '%s'", lit)
+	return fmt.Errorf("unexpected token %s '%s'", tok.String(), lit)
 }
 
 func (p *parser) Parse() (Matcher, error) {
