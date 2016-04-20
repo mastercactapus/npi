@@ -14,9 +14,13 @@ type Version struct {
 	Build      []string
 }
 
-func Parse(s string) (*Version, error) {
+func Parse(s string) (v Version, err error) {
 	p := newParser(bytes.NewBufferString(s))
-	return p.parseVersion()
+	vs,err:= p.parseVersion()
+	if err != nil {
+		return v, err
+	}
+	return *vs, nil
 }
 
 func (a Version) LT(b Version) bool {
